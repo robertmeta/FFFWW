@@ -39,7 +39,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.searchBox.Location = new System.Drawing.Point(0, 0);
             this.searchBox.Name = "searchBox";
-            this.searchBox.Size = new System.Drawing.Size(472, 20);
+            this.searchBox.Size = new System.Drawing.Size(684, 20);
             this.searchBox.TabIndex = 0;
             // 
             // windowTree
@@ -49,7 +49,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.windowTree.Location = new System.Drawing.Point(0, 26);
             this.windowTree.Name = "windowTree";
-            this.windowTree.Size = new System.Drawing.Size(472, 484);
+            this.windowTree.Size = new System.Drawing.Size(684, 435);
             this.windowTree.TabIndex = 1;
             this.windowTree.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.windowTree_AfterSelect);
             // 
@@ -65,11 +65,14 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(472, 510);
+            this.AutoSize = true;
+            this.ClientSize = new System.Drawing.Size(684, 461);
             this.Controls.Add(this.hiddenTree);
             this.Controls.Add(this.windowTree);
             this.Controls.Add(this.searchBox);
             this.Name = "FFFWW";
+            this.ShowIcon = false;
+            this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Fuzzy Finder For Windows Windows";
             this.TopMost = true;
