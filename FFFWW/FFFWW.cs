@@ -10,6 +10,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Automation;
 using System.Windows.Forms;
 
 namespace FFFWW
@@ -91,8 +92,32 @@ namespace FFFWW
                 {
                     if (IsWindowVisible(process.MainWindowHandle))
                     {
-                        windowTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + process.MainWindowTitle + " :: " + process.Id);
-                        hiddenTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + process.MainWindowTitle + " :: " + process.Id);
+                        if (process.ProcessName == "chrome")
+                        {
+                            //To find the tabs we first need to locate something reliable - the 'New Tab' button
+                            AutomationElement rootElement = AutomationElement.FromHandle(process.MainWindowHandle);
+                            Condition condNewTab = new PropertyCondition(AutomationElement.NameProperty, "New Tab");
+                            AutomationElement elemNewTab = rootElement.FindFirst(TreeScope.Descendants, condNewTab);
+
+                            //Get the tabstrip by getting the parent of the 'new tab' button
+                            TreeWalker tWalker = TreeWalker.ControlViewWalker;
+                            AutomationElement elemTabStrip = tWalker.GetParent(elemNewTab);
+
+                            //Loop through all the tabs and get the names which is the page title
+                            Condition tabItemCondition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem);
+
+                            foreach (AutomationElement tabItem in elemTabStrip.FindAll(TreeScope.Children, tabItemCondition))
+                            {
+                                Debug.WriteLine(tabItem.Current.Name);
+                                windowTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + tabItem.Current.Name + " :: " + process.Id);
+                                hiddenTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + tabItem.Current.Name + " :: " + process.Id);
+                            }
+                        }
+                        else
+                        {
+                            windowTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + process.MainWindowTitle + " :: " + process.Id);
+                            hiddenTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + process.MainWindowTitle + " :: " + process.Id);
+                        }
                     }
                 }
             }
