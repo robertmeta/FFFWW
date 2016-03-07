@@ -47,6 +47,7 @@
             this.windowTree.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.windowTree.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.windowTree.Location = new System.Drawing.Point(0, 26);
             this.windowTree.Name = "windowTree";
             this.windowTree.Size = new System.Drawing.Size(684, 435);
@@ -55,7 +56,7 @@
             // 
             // hiddenTree
             // 
-            this.hiddenTree.Location = new System.Drawing.Point(383, 414);
+            this.hiddenTree.Location = new System.Drawing.Point(595, 365);
             this.hiddenTree.Name = "hiddenTree";
             this.hiddenTree.Size = new System.Drawing.Size(89, 96);
             this.hiddenTree.TabIndex = 2;

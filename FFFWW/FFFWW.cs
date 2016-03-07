@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -26,6 +27,7 @@ namespace FFFWW
         public FFFWW()
         {
             InitializeComponent();
+
             // register the event that is fired after the key press.
             hook.KeyPressed += new EventHandler<KeyPressedEventArgs>(hook_KeyPressed);
 
@@ -36,9 +38,20 @@ namespace FFFWW
         private void FFFWW_Load(object sender, EventArgs e)
         {
             windowTree.KeyDown += activeForm_KeyDown;
+            windowTree.TreeViewNodeSorter = new NodeSorter();
             searchBox.KeyDown += activeForm_KeyDown;
             searchBox.TextChanged += searchBox_TextChanged;
             doUpdateList();
+        }
+
+        public class NodeSorter : IComparer
+        {
+            public int Compare(object x, object y)
+            {
+                TreeNode tx = x as TreeNode;
+                TreeNode ty = y as TreeNode;
+                return tx.Text.Length - ty.Text.Length;
+            }
         }
 
         void hook_KeyPressed(object sender, KeyPressedEventArgs e)
@@ -108,12 +121,6 @@ namespace FFFWW
         private void searchBox_TextChanged(object sender, EventArgs e)
         {
             FindClosestMatch(hiddenTree);
-
-            /*foreach (var n in windowTree.Nodes)
-            {
-                string nStr = n.ToString().Replace("TreeNode: ", "");
-                var dist = EditDistance(searchBox.Text, nStr);
-            }*/
         }
         
         // Call the procedure using the TreeView.
@@ -142,10 +149,8 @@ namespace FFFWW
             Match match = Regex.Match(treeNode.Text, re, RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                Debug.WriteLine("Adding: " + treeNode.Text);
                 windowTree.Nodes.Add(treeNode.Name, treeNode.Text);
             }
-            windowTree.Refresh();
             
             // Print each node recursively.
             foreach (TreeNode tn in treeNode.Nodes)
