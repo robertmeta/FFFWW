@@ -39,7 +39,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.searchBox.Location = new System.Drawing.Point(0, 0);
             this.searchBox.Name = "searchBox";
-            this.searchBox.Size = new System.Drawing.Size(684, 20);
+            this.searchBox.Size = new System.Drawing.Size(876, 20);
             this.searchBox.TabIndex = 0;
             // 
             // windowTree
@@ -50,13 +50,13 @@
             this.windowTree.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.windowTree.Location = new System.Drawing.Point(0, 26);
             this.windowTree.Name = "windowTree";
-            this.windowTree.Size = new System.Drawing.Size(684, 435);
+            this.windowTree.Size = new System.Drawing.Size(876, 548);
             this.windowTree.TabIndex = 1;
             this.windowTree.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.windowTree_AfterSelect);
             // 
             // hiddenTree
             // 
-            this.hiddenTree.Location = new System.Drawing.Point(595, 365);
+            this.hiddenTree.Location = new System.Drawing.Point(244, 248);
             this.hiddenTree.Name = "hiddenTree";
             this.hiddenTree.Size = new System.Drawing.Size(89, 96);
             this.hiddenTree.TabIndex = 2;
@@ -67,10 +67,11 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoSize = true;
-            this.ClientSize = new System.Drawing.Size(684, 461);
+            this.ClientSize = new System.Drawing.Size(876, 574);
             this.Controls.Add(this.hiddenTree);
             this.Controls.Add(this.windowTree);
             this.Controls.Add(this.searchBox);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
             this.Name = "FFFWW";
             this.ShowIcon = false;
             this.ShowInTaskbar = false;

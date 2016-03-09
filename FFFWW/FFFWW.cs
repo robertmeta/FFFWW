@@ -22,26 +22,84 @@ namespace FFFWW
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder strText, int maxCount);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowTextLength(IntPtr hWnd);
+        [DllImport("user32.dll")]
+        private static extern bool EnumWindows(EnumWindowsProc enumProc, IntPtr lParam);
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
+        [DllImport("kernel32.dll")]
+        private static extern bool CloseHandle(IntPtr handle);
+        [DllImport("psapi.dll")]
+        private static extern uint GetModuleFileNameEx(IntPtr hWnd, IntPtr hModule, StringBuilder lpFileName, int nSize);
 
-        KeyboardHook hook = new KeyboardHook();
+        // Delegate to filter which windows to include 
+        public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+        /// <summary> Get the text for the window pointed to by hWnd </summary>
+        public static string GetWindowTitle(IntPtr hWnd)
+        {
+            int size = GetWindowTextLength(hWnd);
+            if (size > 0)
+            {
+                var builder = new StringBuilder(size + 1);
+                GetWindowText(hWnd, builder, builder.Capacity);
+                return builder.ToString();
+            }
+
+            return String.Empty;
+        }
+
+        /// <summary> Find all windows that match the given filter </summary>
+        /// <param name="filter"> A delegate that returns true for windows
+        ///    that should be returned and false for windows that should
+        ///    not be returned </param>
+        public static IEnumerable<IntPtr> FindWindows(EnumWindowsProc filter)
+        {
+            IntPtr found = IntPtr.Zero;
+            List<IntPtr> windows = new List<IntPtr>();
+
+            EnumWindows(delegate (IntPtr wnd, IntPtr param)
+            {
+                if (filter(wnd, param))
+                {
+                    // only add the windows that pass the filter
+                    windows.Add(wnd);
+                }
+
+                // but return true here so that we iterate all windows
+                return true;
+            }, IntPtr.Zero);
+
+            return windows;
+        }
+
+        /// <summary> Find all windows that contain the given title text </summary>
+        /// <param name="titleText"> The text that the window title must contain. </param>
+        public static IEnumerable<IntPtr> FindWindowsWithText(string titleText)
+        {
+            return FindWindows(delegate (IntPtr wnd, IntPtr param)
+            {
+                return GetWindowTitle(wnd).Contains(titleText);
+            });
+        }
 
         public FFFWW()
         {
             InitializeComponent();
-
-            // register the event that is fired after the key press.
-            hook.KeyPressed += new EventHandler<KeyPressedEventArgs>(hook_KeyPressed);
-
-            // Just F3
-            hook.RegisterHotKey((ModifierKeys)0, Keys.F3);
         }
 
         private void FFFWW_Load(object sender, EventArgs e)
         {
+            searchBox.KeyDown += activeForm_KeyDown;
             windowTree.KeyDown += activeForm_KeyDown;
             windowTree.TreeViewNodeSorter = new NodeSorter();
-            searchBox.KeyDown += activeForm_KeyDown;
             searchBox.TextChanged += searchBox_TextChanged;
+
             doUpdateList();
         }
 
@@ -55,77 +113,60 @@ namespace FFFWW
             }
         }
 
-        void hook_KeyPressed(object sender, KeyPressedEventArgs e)
-        {
-            doUpdateList();
-        }
-
         private void activeForm_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter)
             {
                 doSelected();
             }
-            if (e.KeyCode == Keys.Down || e.KeyCode == Keys.PageDown)
-            {
-                if (windowTree.SelectedNode != null)
-                {
-                    windowTree.SelectedNode = windowTree.Nodes[windowTree.SelectedNode.Index];
-                }
-                else
-                {
-                    windowTree.SelectedNode = windowTree.GetNodeAt(new Point(0));
-                }
-            }
+        }
+
+        public static uint GetWindowPID(IntPtr hWnd)
+        {
+            uint lpdwProcessId;
+            GetWindowThreadProcessId(hWnd, out lpdwProcessId);
+            return lpdwProcessId;
+        }
+
+        private string GetWindowModuleFileName(IntPtr hWnd)
+        {
+            uint processId = 0;
+            const int nChars = 1024;
+            StringBuilder filename = new StringBuilder(nChars);
+            GetWindowThreadProcessId(hWnd, out processId);
+            IntPtr hProcess = OpenProcess(1040, false, processId);
+            GetModuleFileNameEx(hProcess, IntPtr.Zero, filename, nChars);
+            CloseHandle(hProcess);
+            string[] parts = filename.ToString().Split('\\');
+            return parts[parts.Length-1].Replace(".exe", "");
         }
 
         private void doUpdateList()
         {
-            windowTree.Nodes.Clear();
-            hiddenTree.Nodes.Clear();
-
             Process[] processlist = Process.GetProcesses();
-
-            foreach (Process process in processlist)
+            var windows = FindWindowsWithText("");
+            foreach (IntPtr w in windows)
             {
-                if (!String.IsNullOrEmpty(process.MainWindowTitle))
+                if (IsWindowVisible(w))
                 {
-                    if (IsWindowVisible(process.MainWindowHandle))
+                    string processName = GetWindowModuleFileName(w);
+                    string title = GetWindowTitle(w);
+                    string pid = GetWindowPID(w).ToString();
+                    if (processName != "" && title != "" && pid != "")
                     {
-                        if (process.ProcessName == "chrome")
-                        {
-                            //To find the tabs we first need to locate something reliable - the 'New Tab' button
-                            AutomationElement rootElement = AutomationElement.FromHandle(process.MainWindowHandle);
-                            Condition condNewTab = new PropertyCondition(AutomationElement.NameProperty, "New Tab");
-                            AutomationElement elemNewTab = rootElement.FindFirst(TreeScope.Descendants, condNewTab);
-
-                            //Get the tabstrip by getting the parent of the 'new tab' button
-                            TreeWalker tWalker = TreeWalker.ControlViewWalker;
-                            AutomationElement elemTabStrip = tWalker.GetParent(elemNewTab);
-
-                            //Loop through all the tabs and get the names which is the page title
-                            Condition tabItemCondition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TabItem);
-
-                            foreach (AutomationElement tabItem in elemTabStrip.FindAll(TreeScope.Children, tabItemCondition))
-                            {
-                                Debug.WriteLine(tabItem.Current.Name);
-                                windowTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + tabItem.Current.Name + " :: " + process.Id);
-                                hiddenTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + tabItem.Current.Name + " :: " + process.Id);
-                            }
-                        }
-                        else
-                        {
-                            windowTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + process.MainWindowTitle + " :: " + process.Id);
-                            hiddenTree.Nodes.Add(process.MainWindowHandle.ToString(), process.ProcessName + " :: " + process.MainWindowTitle + " :: " + process.Id);
-                        }
+                            TreeNode tn = new TreeNode();
+                            tn.Name = w.ToString();
+                            tn.Text = processName + " :: " + title + " :: " + pid;
+                            TreeNode tn2 = (TreeNode)tn.Clone();
+                            windowTree.Nodes.Add(tn);
+                            hiddenTree.Nodes.Add(tn2);
                     }
                 }
             }
 
             searchBox.Text = "";
-            this.Show();
-            this.Activate();
             searchBox.Focus();
+            this.Height = windowTree.VisibleCount * 20;
         }
 
         private void doSelected()
@@ -135,11 +176,12 @@ namespace FFFWW
                 windowTree.SelectedNode = windowTree.GetNodeAt(new Point(0));
             }
 
-            if (windowTree.SelectedNode != null) {
+            if (windowTree.SelectedNode != null)
+            {
                 int hWnd = Int32.Parse(windowTree.SelectedNode.Name);
                 IntPtr intPtr_hWnd = new IntPtr(hWnd);
                 SetForegroundWindow(intPtr_hWnd);
-                this.Hide();
+                this.Close();
             }
         }
 
@@ -147,7 +189,7 @@ namespace FFFWW
         {
             FindClosestMatch(hiddenTree);
         }
-        
+
         // Call the procedure using the TreeView.
         private void FindClosestMatch(TreeView treeView)
         {
@@ -170,13 +212,12 @@ namespace FFFWW
             }
             re += "";
 
-            Debug.WriteLine(re);
             Match match = Regex.Match(treeNode.Text, re, RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                windowTree.Nodes.Add(treeNode.Name, treeNode.Text);
+                windowTree.Nodes.Add(treeNode);
             }
-            
+
             // Print each node recursively.
             foreach (TreeNode tn in treeNode.Nodes)
             {
@@ -187,149 +228,5 @@ namespace FFFWW
         private void windowTree_AfterSelect(object sender, TreeViewEventArgs e)
         {
         }
-    }
-
-
-
-    public sealed class KeyboardHook : IDisposable
-    {
-        // Registers a hot key with Windows.
-        [DllImport("user32.dll")]
-        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-        // Unregisters the hot key with Windows.
-        [DllImport("user32.dll")]
-        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-
-        /// <summary>
-        /// Represents the window that is used internally to get the messages.
-        /// </summary>
-        private class Window : NativeWindow, IDisposable
-        {
-            private static int WM_HOTKEY = 0x0312;
-
-            public Window()
-            {
-                // create the handle for the window.
-                this.CreateHandle(new CreateParams());
-            }
-
-            /// <summary>
-            /// Overridden to get the notifications.
-            /// </summary>
-            /// <param name="m"></param>
-            protected override void WndProc(ref Message m)
-            {
-                base.WndProc(ref m);
-
-                // check if we got a hot key pressed.
-                if (m.Msg == WM_HOTKEY)
-                {
-                    // get the keys.
-                    Keys key = (Keys)(((int)m.LParam >> 16) & 0xFFFF);
-                    ModifierKeys modifier = (ModifierKeys)((int)m.LParam & 0xFFFF);
-
-                    // invoke the event to notify the parent.
-                    if (KeyPressed != null)
-                        KeyPressed(this, new KeyPressedEventArgs(modifier, key));
-                }
-            }
-
-            public event EventHandler<KeyPressedEventArgs> KeyPressed;
-
-            #region IDisposable Members
-
-            public void Dispose()
-            {
-                this.DestroyHandle();
-            }
-
-            #endregion
-        }
-
-        private Window _window = new Window();
-        private int _currentId;
-
-        public KeyboardHook()
-        {
-            // register the event of the inner native window.
-            _window.KeyPressed += delegate (object sender, KeyPressedEventArgs args)
-            {
-                if (KeyPressed != null)
-                    KeyPressed(this, args);
-            };
-        }
-
-        /// <summary>
-        /// Registers a hot key in the system.
-        /// </summary>
-        /// <param name="modifier">The modifiers that are associated with the hot key.</param>
-        /// <param name="key">The key itself that is associated with the hot key.</param>
-        public void RegisterHotKey(ModifierKeys modifier, Keys key)
-        {
-            // increment the counter.
-            _currentId = _currentId + 1;
-
-            // register the hot key.
-            if (!RegisterHotKey(_window.Handle, _currentId, (uint)modifier, (uint)key))
-                throw new InvalidOperationException("Couldn’t register the hot key.");
-        }
-
-        /// <summary>
-        /// A hot key has been pressed.
-        /// </summary>
-        public event EventHandler<KeyPressedEventArgs> KeyPressed;
-
-        #region IDisposable Members
-
-        public void Dispose()
-        {
-            // unregister all the registered hot keys.
-            for (int i = _currentId; i > 0; i--)
-            {
-                UnregisterHotKey(_window.Handle, i);
-            }
-
-            // dispose the inner native window.
-            _window.Dispose();
-        }
-
-        #endregion
-    }
-
-    /// <summary>
-    /// Event Args for the event that is fired after the hot key has been pressed.
-    /// </summary>
-    public class KeyPressedEventArgs : EventArgs
-    {
-        private ModifierKeys _modifier;
-        private Keys _key;
-
-        internal KeyPressedEventArgs(ModifierKeys modifier, Keys key)
-        {
-            _modifier = modifier;
-            _key = key;
-        }
-
-        public ModifierKeys Modifier
-        {
-            get { return _modifier; }
-        }
-
-        public Keys Key
-        {
-            get { return _key; }
-        }
-    }
-
-    /// <summary>
-    /// The enumeration of possible modifiers.
-    /// </summary>
-    [Flags]
-    public enum ModifierKeys : uint
-    {
-        Alt = 1,
-        Control = 2,
-        Shift = 4,
-        Win = 8
     }
 }
