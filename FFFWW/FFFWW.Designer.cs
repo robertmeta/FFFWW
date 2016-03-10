@@ -52,7 +52,6 @@
             this.windowTree.Name = "windowTree";
             this.windowTree.Size = new System.Drawing.Size(876, 548);
             this.windowTree.TabIndex = 1;
-            this.windowTree.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.windowTree_AfterSelect);
             // 
             // hiddenTree
             // 
